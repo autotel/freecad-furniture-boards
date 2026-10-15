@@ -20,6 +20,7 @@ Tested with FreeCAD 1.1.
 | `furniture_boards.py` | The code: `Cells` and `Boards` parametric objects |
 | `MakeBoards.FCMacro` | Macro: build `Cells` + `Boards` from the selected tools |
 | `ToggleBoard.FCMacro` | Macro: add/remove the clicked volume(s) from `Boards` |
+| `ExplodeBoards.FCMacro` | Macro: one object per board that keeps tracking its board (use instead of *Explode compound*) |
 | `flat_pack.py` | The code: `FlatPack` and `FlatSheet` parametric objects |
 | `LayFlat.FCMacro` | Macro: lay all pieces flat, one sheet per thickness |
 | `example/vestidor-example.FCStd` | The example used in this manual |
@@ -37,6 +38,7 @@ FC=~/.local/share/FreeCAD/v1-1        # FreeCAD 1.1 user folder on Linux
 ln -s ~/dev/freecad-furniture-boards                     $FC/Mod/FurnitureBoards
 ln -s ~/dev/freecad-furniture-boards/MakeBoards.FCMacro  $FC/Macro/
 ln -s ~/dev/freecad-furniture-boards/ToggleBoard.FCMacro $FC/Macro/
+ln -s ~/dev/freecad-furniture-boards/ExplodeBoards.FCMacro $FC/Macro/
 ln -s ~/dev/freecad-furniture-boards/LayFlat.FCMacro     $FC/Macro/
 ```
 
@@ -134,12 +136,40 @@ To flip a volume, click one of its faces in the 3D view and run
   This is your cutting list.
 - `Cells.CellCount`: number of closed volumes found.
 
-For one object per board, for example to color them or export them one by
-one, use *Part → Compound → Explode compound* on `Boards`. Those pieces are
-numbered by position, so they can change when the design changes. Explode
-when the design is final.
+For one object per board, see [Separate boards](#5b-separate-boards-explodeboards).
 
 ![Whole window](docs/img/07-window.png)
+
+### 5b. Separate boards: ExplodeBoards
+
+To get one object per board, for example to fuse two boards, color them or
+export them one by one, select `Boards` and run *ExplodeBoards.FCMacro*. It
+creates a **Boards pieces** group with one `BoardPiece` per board and hides
+`Boards`.
+
+![Pieces](docs/img/12-pieces-tree.png)
+
+> **Don't use *Part → Compound → Explode compound* on `Boards`.** It tracks
+> boards by their position in the list (piece 0, 1, 2…). When you add or
+> remove a board, the list order changes. Pieces then silently switch to
+> other boards, and new boards never show up. If you already used it, run
+> *ExplodeBoards*. It converts those pieces, keeps their names and anything
+> built from them (fusions etc.), and deletes the old ones.
+
+**How a piece knows its board.** Every volume gets an identity: the list of
+surfaces that enclose it. A shelf, for example, is enclosed by its two
+sketch lines, the two side lines, the front plane and the back plane. You
+can see these in `Boards.BoardKeys` and `Cells.CellKeys`. Each sketch line
+is identified by its sketcher geometry id, which never changes. So:
+
+| You change… | Pieces |
+|---|---|
+| Move lines, change depth, edit spreadsheet values | Follow their boards |
+| Add a board | Existing pieces untouched. `Boards.Warnings` says a board has no piece. Run *ExplodeBoards* again: it adds only the missing ones |
+| Delete a board's line | That piece becomes empty, with `Status` = "Board no longer exists". Delete it (and fix whatever used it) |
+| Delete a line and draw a new one in its place | The piece's ID is gone, so it falls back to `Anchor`, a point inside the board, and adopts the new ID |
+
+Running *ExplodeBoards* again never duplicates pieces.
 
 ### 6. Lay the pieces flat
 
@@ -154,11 +184,11 @@ thickness, and puts one sheet per thickness in front of the model, inside a
 **Which pieces it uses:**
 
 - **Nothing selected:** every visible object that has solids. This is
-  usually what you want. *Explode compound* and *Boolean* operations hide
+  usually what you want. *ExplodeBoards* and *Boolean* operations hide
   their inputs, so whatever you edited after `Boards` is what is visible.
 - **Something selected:** only the selected objects.
 - Every solid inside an object is one piece. If you select both an object
-  and something built from it, for example `Boards` and the exploded pieces,
+  and something built from it, for example `Boards` and its pieces,
   or two pieces and their fusion, only the end result is counted, so nothing
   is counted twice.
 
@@ -217,6 +247,9 @@ recompute. `Cells` and `Boards` follow. Things to check after a change:
 | `MakeBoards: select sketches/planes/surfaces first` | Nothing was selected in the tree |
 | `ToggleBoard: FaceN is shared by 2 volumes` | You clicked an inside face. Click an outside face |
 | `Cells` is empty | The tools enclose no closed volume. You need a front and a back limit, plus closed outlines |
+| Pieces show the wrong board, or a new board is missing, after *Explode compound* | Run *ExplodeBoards*. It converts them (see [5b](#5b-separate-boards-explodeboards)) |
+| `Boards: 1 board(s) have no piece` | You added a board after exploding. Run *ExplodeBoards* again |
+| A piece is empty, `Status` = "Board no longer exists" | Its board was removed from the design. Delete the piece |
 | A piece is on the **Not flat** sheet | It isn't a single flat board. Fusing two boards into an L does this. Check `FlatPack.Warnings` |
 | `Flat 18 mm: no sheet yet, run LayFlat again` | The design now has a new thickness. Run *LayFlat* again |
 

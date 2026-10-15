@@ -1,6 +1,6 @@
 """Regenerate docs/img/*.png and example/vestidor-example.FCStd.
 
-Also a GUI smoke test: it runs MakeBoards, ToggleBoard and LayFlat.
+Also a GUI smoke test: it runs MakeBoards, ToggleBoard, ExplodeBoards and LayFlat.
 
 Runs inside the FreeCAD GUI. Headless example (from the repo root), using a
 throwaway FreeCAD profile so your own settings are left alone:
@@ -152,13 +152,20 @@ def main():
         widget_shot("08-properties.png", dock)
         Gui.Selection.clearSelection()
 
-        # Nothing selected: LayFlat uses every visible object with solids.
+        # One object per board, then lay them flat. Nothing selected: LayFlat
+        # uses every visible object with solids (the pieces).
+        run_macro("ExplodeBoards.FCMacro")
+        Gui.Selection.addSelection(furniture_boards.board_pieces(boards)[0])
+        widget_shot("12-pieces-tree.png", dock)
+        Gui.Selection.clearSelection()
         run_macro("LayFlat.FCMacro")
         sheet = [o for o in doc.Objects if o.Label == "Flat 15 mm"][0]
         shot("09-flat-pack.png")
-        boards.ViewObject.Visibility = False
+        for p in furniture_boards.board_pieces(boards):
+            p.ViewObject.Visibility = False
         shot("10-flat-top.png", "top")
-        boards.ViewObject.Visibility = True
+        for p in furniture_boards.board_pieces(boards):
+            p.ViewObject.Visibility = True
         Gui.Selection.addSelection(sheet)
         widget_shot("11-flat-properties.png", dock)
         Gui.Selection.clearSelection()

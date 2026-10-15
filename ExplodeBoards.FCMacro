@@ -1,0 +1,19 @@
+# Split Boards into one object per board (use this instead of
+# Part > Compound > Explode compound). Select Boards, or nothing to do every
+# Boards object. Run again after adding boards: only missing pieces are made.
+# Pieces made earlier with Explode compound are converted.
+import FreeCAD as App
+import FreeCADGui as Gui
+import furniture_boards
+
+doc = App.ActiveDocument
+targets = [o for o in (Gui.Selection.getSelection() or doc.Objects)
+           if type(getattr(o, "Proxy", None)).__name__ == "Boards"]
+if not targets:
+    App.Console.PrintError("ExplodeBoards: no Boards object found\n")
+for b in targets:
+    created, converted, lost = furniture_boards.explode(b)
+    App.Console.PrintMessage("ExplodeBoards: %s: %d new, %d converted from Explode compound\n"
+                             % (b.Label, len(created), len(converted)))
+    for p in lost:
+        App.Console.PrintWarning("ExplodeBoards: %s: board no longer exists\n" % p.Label)
