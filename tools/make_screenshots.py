@@ -1,5 +1,7 @@
 """Regenerate docs/img/*.png and example/vestidor-example.FCStd.
 
+Also a GUI smoke test: it runs MakeBoards, ToggleBoard and LayFlat.
+
 Runs inside the FreeCAD GUI. Headless example (from the repo root), using a
 throwaway FreeCAD profile so your own settings are left alone:
 
@@ -35,7 +37,7 @@ def pump(seconds=0.5):
 
 def set_view(view):
     v = Gui.ActiveDocument.ActiveView
-    {"iso": v.viewIsometric, "front": v.viewFront}[view]()
+    {"iso": v.viewIsometric, "front": v.viewFront, "top": v.viewTop}[view]()
     v.fitAll()
     pump()
     return v
@@ -150,9 +152,21 @@ def main():
         widget_shot("08-properties.png", dock)
         Gui.Selection.clearSelection()
 
+        # Nothing selected: LayFlat uses every visible object with solids.
+        run_macro("LayFlat.FCMacro")
+        sheet = [o for o in doc.Objects if o.Label == "Flat 15 mm"][0]
+        shot("09-flat-pack.png")
+        boards.ViewObject.Visibility = False
+        shot("10-flat-top.png", "top")
+        boards.ViewObject.Visibility = True
+        Gui.Selection.addSelection(sheet)
+        widget_shot("11-flat-properties.png", dock)
+        Gui.Selection.clearSelection()
+
         os.makedirs(os.path.join(REPO, "example"), exist_ok=True)
         doc.saveAs(os.path.join(REPO, "example", "vestidor-example.FCStd"))
-        status = "OK boards=%d cells=%d\n" % (boards.BoardCount, cells.CellCount)
+        status = "OK boards=%d cells=%d flat=%d\n" % (
+            boards.BoardCount, cells.CellCount, sheet.PieceCount)
     except Exception:
         import traceback
         status = traceback.format_exc()

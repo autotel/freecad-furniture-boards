@@ -20,6 +20,8 @@ Tested with FreeCAD 1.1.
 | `furniture_boards.py` | The code: `Cells` and `Boards` parametric objects |
 | `MakeBoards.FCMacro` | Macro: build `Cells` + `Boards` from the selected tools |
 | `ToggleBoard.FCMacro` | Macro: add/remove the clicked volume(s) from `Boards` |
+| `flat_pack.py` | The code: `FlatPack` and `FlatSheet` parametric objects |
+| `LayFlat.FCMacro` | Macro: lay all pieces flat, one sheet per thickness |
 | `example/vestidor-example.FCStd` | The example used in this manual |
 | `tools/make_screenshots.py` | Regenerates the screenshots and the example file |
 
@@ -35,12 +37,13 @@ FC=~/.local/share/FreeCAD/v1-1        # FreeCAD 1.1 user folder on Linux
 ln -s ~/dev/freecad-furniture-boards                     $FC/Mod/FurnitureBoards
 ln -s ~/dev/freecad-furniture-boards/MakeBoards.FCMacro  $FC/Macro/
 ln -s ~/dev/freecad-furniture-boards/ToggleBoard.FCMacro $FC/Macro/
+ln -s ~/dev/freecad-furniture-boards/LayFlat.FCMacro     $FC/Macro/
 ```
 
 Restart FreeCAD. Because these are symlinks, editing the repo updates FreeCAD
 directly.
 
-Optional: *Tools → Customize → Macros* lets you turn both macros into
+Optional: *Tools → Customize → Macros* lets you turn the macros into
 toolbar buttons.
 
 ## Usage
@@ -138,6 +141,63 @@ when the design is final.
 
 ![Whole window](docs/img/07-window.png)
 
+### 6. Lay the pieces flat
+
+Run *LayFlat.FCMacro*. It lays every piece flat, groups pieces by
+thickness, and puts one sheet per thickness in front of the model, inside a
+**Flat pack** group.
+
+![Flat pack](docs/img/09-flat-pack.png)
+
+![Flat pack, top view](docs/img/10-flat-top.png)
+
+**Which pieces it uses:**
+
+- **Nothing selected:** every visible object that has solids. This is
+  usually what you want. *Explode compound* and *Boolean* operations hide
+  their inputs, so whatever you edited after `Boards` is what is visible.
+- **Something selected:** only the selected objects.
+- Every solid inside an object is one piece. If you select both an object
+  and something built from it, for example `Boards` and the exploded pieces,
+  or two pieces and their fusion, only the end result is counted, so nothing
+  is counted twice.
+
+**How a piece is laid flat:**
+
+- Its biggest flat side faces down.
+- Its longest straight edge runs along X.
+- Pieces are placed in rows, longest first. A new row starts after
+  `RowLength` (2500 mm by default).
+
+`Gap` and `GroupGap` on `FlatPack` set the spacing between pieces and
+between groups.
+
+Pieces that are not flat boards, for example two boards fused into an L,
+go to a separate **Not flat** sheet and are listed in `FlatPack.Warnings`.
+
+**Staying up to date:**
+
+- The sheets are live. When you change the sketch, the planes or `Boards`,
+  or edit the pieces, every sheet recomputes.
+- If the set of thicknesses changes (a new 18 mm board, or no 15 mm boards
+  left), `FlatPack.Warnings` tells you to run *LayFlat* again.
+- Running it again reuses the same **Flat pack**. It adds missing sheets,
+  removes empty ones and updates the source list. It never creates a second
+  set of sheets.
+
+Each sheet's `Pieces` property lists every piece as `n: source  length x
+width  at (x, y)`, where `(x, y)` is measured from the sheet's corner:
+
+![Sheet properties](docs/img/11-flat-properties.png)
+
+**Using the sheets:**
+
+- **Cutting/CNC:** select a sheet and use *File → Export* (DXF or SVG), or
+  make a *TechDraw* top view of it. Both stay linked to the model.
+- **Optimizing material use:** the row layout keeps pieces organized, but it
+  does not try to fit them onto stock boards. For that, take
+  `Boards.CutList` to a panel cutting optimizer.
+
 ## Changing the design
 
 Edit the sketch, move a plane, or change a spreadsheet value, then
@@ -157,6 +217,8 @@ recompute. `Cells` and `Boards` follow. Things to check after a change:
 | `MakeBoards: select sketches/planes/surfaces first` | Nothing was selected in the tree |
 | `ToggleBoard: FaceN is shared by 2 volumes` | You clicked an inside face. Click an outside face |
 | `Cells` is empty | The tools enclose no closed volume. You need a front and a back limit, plus closed outlines |
+| A piece is on the **Not flat** sheet | It isn't a single flat board. Fusing two boards into an L does this. Check `FlatPack.Warnings` |
+| `Flat 18 mm: no sheet yet, run LayFlat again` | The design now has a new thickness. Run *LayFlat* again |
 
 ## Regenerating screenshots
 
@@ -164,5 +226,5 @@ recompute. `Cells` and `Boards` follow. Things to check after a change:
 cd ~/dev/freecad-furniture-boards
 FREECAD_USER_HOME=$(mktemp -d) FB_REPO=$PWD \
     xvfb-run -a -s "-screen 0 1600x1000x24" ~/Apps/freecad.appimage tools/make_screenshots.py
-cat docs/screenshots.log   # "OK boards=15 cells=26"
+cat docs/screenshots.log   # "OK boards=15 cells=26 flat=15"
 ```

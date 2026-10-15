@@ -1,0 +1,23 @@
+# Lay all boards flat, one sheet per thickness.
+# Select the finished pieces (Boards, exploded pieces, fusions...) or select
+# nothing to use every visible object that has solids. Run again whenever the
+# set of thicknesses changes: the existing flat pack is updated, not duplicated.
+import FreeCAD as App
+import FreeCADGui as Gui
+import flat_pack
+
+doc = App.ActiveDocument
+sel = Gui.Selection.getSelection()
+if not sel:
+    sel = [o for o in doc.Objects
+           if o.ViewObject is not None and o.ViewObject.Visibility
+           and not flat_pack.is_owned(o)
+           and hasattr(o, "Shape") and o.Shape.Solids]
+if not sel:
+    App.Console.PrintError("LayFlat: no pieces selected or visible\n")
+else:
+    pack = flat_pack.lay_flat(sel)
+    for w in pack.Warnings:
+        App.Console.PrintWarning("LayFlat: %s\n" % w)
+    App.Console.PrintMessage("LayFlat: %d pieces -> %s\n" % (
+        pack.PieceCount, ", ".join(flat_pack._label(t) for t in pack.Thicknesses)))
