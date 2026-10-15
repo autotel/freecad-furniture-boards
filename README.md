@@ -137,6 +137,7 @@ To flip a volume, click one of its faces in the 3D view and run
 - `Cells.CellCount`: number of closed volumes found.
 
 For one object per board, see [Separate boards](#5b-separate-boards-explodeboards).
+To join touching boards, see [Combining boards](#5c-combining-touching-boards-into-one).
 
 ![Whole window](docs/img/07-window.png)
 
@@ -170,6 +171,39 @@ is identified by its sketcher geometry id, which never changes. So:
 | Delete a line and draw a new one in its place | The piece's ID is gone, so it falls back to `Anchor`, a point inside the board, and adopts the new ID |
 
 Running *ExplodeBoards* again never duplicates pieces.
+
+### 5c. Combining touching boards into one
+
+Two boards that touch become one board in one of two ways. Pick one way per
+board. **Don't mix them**: if the sketch merges two boards that a Union was
+built from, one of the Union's inputs disappears and the Union breaks.
+
+**A. In the sketch (preferred when the seam has no reason to exist).** Two
+touching boards are separate because a sketch line runs between them, for
+example a divider line that crosses a shelf. Make that line stop at the
+board:
+
+- Select the line and *Toggle construction* if it isn't needed anywhere
+  else. Construction lines are ignored.
+- Otherwise use the Sketcher *Trim* or *Split* tool, and set the piece of
+  line that lies inside the board to construction, or delete it.
+
+The two volumes become one board on recompute. If you had run
+*ExplodeBoards*, one of the two pieces takes over the merged board. The
+other one gets `Status` = "Board no longer exists", so delete it.
+
+**B. Fuse the pieces (when the sketch must keep the line).**
+
+1. Run *ExplodeBoards* (see [5b](#5b-separate-boards-explodeboards)).
+2. Ctrl+click the touching pieces and use *Part → Boolean → Union*.
+3. On the new `Fusion`, set **Refine = true** in the property editor. This
+   removes the seam, so the result is a single clean solid.
+
+The Union follows the design: move the board's lines and it moves with
+them. *LayFlat* counts it as one board, because it uses the end result and
+skips the pieces it was built from. Touching boards that are not in one
+plane, like a side and a top forming an L, can't be cut from one sheet.
+*LayFlat* puts those on its **Not flat** sheet.
 
 ### 6. Lay the pieces flat
 

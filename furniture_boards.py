@@ -223,7 +223,9 @@ class Boards:
             cell_keys = [""] * len(cells)
         kept, keys, cuts = [], [], []
         for s, key in zip(cells, cell_keys):
-            flipped = sum(1 for p in obj.Toggled if s.isInside(p, 1e-7, False)) % 2
+            # On-face counts too: if a toggled board is split through its
+            # point, both halves stay toggled.
+            flipped = sum(1 for p in obj.Toggled if s.isInside(p, 1e-6, True)) % 2
             if self.in_base(obj, s) != bool(flipped):
                 kept.append(s)
                 keys.append(key)
@@ -233,8 +235,13 @@ class Boards:
         obj.BoardCount = len(kept)
         obj.CutList = cuts
 
+        # Pieces recompute after this, and a piece whose key vanished re-attaches
+        # to the board around its anchor, so don't count those boards as missing.
         pieces = board_pieces(obj)
-        missing = len(set(keys) - {p.Key for p in pieces}) if pieces else 0
+        have = {p.Key for p in pieces}
+        anchors = [p.Anchor for p in pieces if p.Key not in keys]
+        missing = sum(1 for k, s in zip(keys, kept)
+                      if k not in have and not any(s.isInside(a, 1e-6, True) for a in anchors))
         obj.Warnings = (["%d board(s) have no piece: run ExplodeBoards again" % missing]
                         if missing else [])
         if missing:
@@ -274,11 +281,15 @@ class BoardPiece:
         if i is None:
             # Key gone (e.g. a line was deleted and redrawn): follow the anchor,
             # unless another piece already owns that board.
+            # First strictly inside, then also on the surface (e.g. the board
+            # was split exactly through the anchor).
             taken = {p.Key for p in board_pieces(src) if p is not obj}
-            for j, s in enumerate(solids):
-                if j < len(keys) and keys[j] not in taken and s.isInside(obj.Anchor, 1e-7, False):
-                    i = j
-                    obj.Key = keys[j]
+            for on_face in (False, True):
+                i = next((j for j, s in enumerate(solids)
+                          if j < len(keys) and keys[j] not in taken
+                          and s.isInside(obj.Anchor, 1e-6, on_face)), None)
+                if i is not None:
+                    obj.Key = keys[i]
                     break
         if i is None:
             obj.Shape = Part.Shape()
