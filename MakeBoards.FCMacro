@@ -1,0 +1,11 @@
+# Select the tools (sketches, planes such as XZ_Plane and your offset
+# plane, extruded surfaces...), then run this macro.
+import FreeCAD as App
+import FreeCADGui as Gui
+import furniture_boards
+
+sel = Gui.Selection.getSelection()
+if not sel:
+    App.Console.PrintError("MakeBoards: select sketches/planes/surfaces first\n")
+else:
+    furniture_boards.make(sel)

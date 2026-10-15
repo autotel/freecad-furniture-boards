@@ -1,0 +1,20 @@
+# Click faces of volumes in the 3D view (on Cells or Boards), then run this
+# macro to add/remove those volumes from the Boards result.
+import FreeCAD as App
+import FreeCADGui as Gui
+import furniture_boards
+
+done = False
+for s in Gui.Selection.getSelectionEx("", 0):
+    obj = s.Object
+    if not (hasattr(obj, "Toggled") or hasattr(obj, "CellCount")):
+        continue
+    for name in s.SubElementNames:
+        name = name.split(".")[-1]
+        if name.startswith("Face"):
+            furniture_boards.toggle(obj, name)
+            done = True
+if done:
+    App.ActiveDocument.recompute()
+else:
+    App.Console.PrintError("ToggleBoard: click faces on a Cells or Boards object first\n")
